@@ -2,48 +2,44 @@ use std::fs;
 use regex::Regex;
 
 fn main() {
-    let data = fs::read_to_string("data/example2.txt").expect("couldn't read puzzle input, dummy");
+    let data = fs::read_to_string("data/input.txt").expect("couldn't read puzzle input, dummy");
     let data : Vec<&str> = data.lines().collect();
     
+    let digit = Regex::new(r"[0-9]").unwrap();
     let digitlike = Regex::new(r"[0-9]|one|two|three|four|five|six|seven|eight|nine").unwrap();
+
+    println!("part 1: {}", solve(digit, &data));
+    println!("part 2: {}", solve(digitlike, &data));
+}
+
+fn solve (test: Regex, lines : &Vec<&str>) -> i32 {
     let mut sum = 0;
 
-    for line in data {
+    for line in lines {
 
-        let digitlikes: Vec<&str> = digitlike
-            .find_iter(line)
-            .map(|m| m.as_str())
-            .collect();
-
-        for d in &digitlikes {
-            print!("{}",d);
-        }
-        println!("");
-
-
-        let mut first = digitlikes[0];
+        let mut first = match test.find(line) {
+            Some(m) => m.as_str(),
+            None => panic!("no digit in this line? {}", line)
+        };
         if first.len() > 1 {
-            first = digitWordToDigit(first);
-        }
-        let mut last = digitlikes[digitlikes.len()-1];
-        if last.len() > 1 {
-            last = digitWordToDigit(last);
+            first = digit_word_to_digit(first);
         }
 
-        // println!(" {}{}", first,last);
-        
+        let mut last = regex_last(&test, line).unwrap();
+        if last.len() > 1 {
+            last = digit_word_to_digit(last);
+        }
+
         let mut num = first.to_string();
         num.push_str(last);
         
         sum += num.parse::<i32>().unwrap();
     }
 
-
-    println!("sum {}", sum);
-
+    return sum;
 }
 
-fn digitWordToDigit (s: &str) -> &str {
+fn digit_word_to_digit (s: &str) -> &str {
     match s {
         "one" => "1",
         "two" => "2",
@@ -54,6 +50,45 @@ fn digitWordToDigit (s: &str) -> &str {
         "seven" => "7",
         "eight" => "8",
         "nine" => "9",
-        _ => unreachable!()
+        _ => panic!("{} is not a digit word?", s)
+    }
+}
+
+// a regex that does `find` starting from the back
+// because regex crate can't find overlapping matches, ie "oneight" only catches "one", not "eight"  
+fn regex_last<'a> (test : &Regex, hay: &'a str) -> Option<&'a str> {
+    let mut last = None;
+    for idx in (0..hay.len()).rev() {
+        match test.find_at(hay, idx) {
+            Some(c) => {
+                last = Some(c.as_str());
+                break;              
+            },
+            None => ()
+        }
+    }
+    return last;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_digit_word () {
+        assert_eq!(digit_word_to_digit("one"), "1");
+        assert_eq!(digit_word_to_digit("nine"), "9");
+    }
+
+    #[test]
+    #[should_panic]
+    fn bad_digit_word () {
+        let _ = digit_word_to_digit("yeet");
+    }
+    
+    #[test]
+    fn overlapping_matches () {
+        let t = Regex::new(r"[0-9]|one|two|three|four|five|six|seven|eight|nine").unwrap();
+        assert_eq!(regex_last(&t, "oneight"), Some("eight"));
     }
 }
